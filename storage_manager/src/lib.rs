@@ -6,14 +6,6 @@ This componenet is incharge of the communication with
 For more information check the wiki page:
  */
 
-pub struct StorageManager{
+pub struct StorageManager {}
 
-
-}
-
-
-impl StorageManager{
-
-    
-
-}
+impl StorageManager {}

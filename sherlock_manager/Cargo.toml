@@ -1,0 +1,10 @@
+[package]
+name = "sherlock_manager"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+engines_manager = {path = "../engines_manager"}
+storage_manager = {path = "../storage_manager"}

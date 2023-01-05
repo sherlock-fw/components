@@ -272,8 +272,8 @@ mod engine_tests {
     }
     #[test]
     fn check_add_command() {
-        let mut engine = Engine::new("Engine","./engine",None,None);
-        engine.add_command("search","-s $query", None);
+        let mut engine = Engine::new("Engine", "./engine", None, None);
+        engine.add_command("search", "-s $query", None);
         assert!(engine.execute("search", "test123").is_ok());
     }
 
