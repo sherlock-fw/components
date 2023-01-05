@@ -1,0 +1,16 @@
+{
+    "name":"facebook",
+    "path":"./facebook_engine.py",
+    "prefix":"python3",
+    "commands":{
+        "user":{
+            "args":"-search_user=$query",
+            "description":"search a user"
+        },        
+        "group":{
+            "args":"-group=$query",
+            "description":"search a group"
+        }
+    },
+    "description":"Search stuff on Facebook."
+}
