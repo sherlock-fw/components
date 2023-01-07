@@ -1,4 +1,3 @@
-#![allow(unused)] //TODO: remove later
 use serde::Deserialize;
 use serde_valid::{json::FromJsonStr, Validate, ValidatePattern};
 use std::collections::HashMap;
