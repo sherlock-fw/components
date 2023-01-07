@@ -78,7 +78,7 @@ pub enum Respond {
 }
 
 #[cfg(test)]
-mod messages_box_tests {
+mod tests {
     use super::*;
     use std::thread;
 
