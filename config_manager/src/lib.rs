@@ -1,5 +1,5 @@
+//TODO: change the way invalid initiation is handled
 #![allow(unused)] //TODO: remove
-
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::{fs, io::Read};
@@ -11,7 +11,7 @@ static CONFIG_LOCATIONS: [&str; 4] = [
     "/opt/sherlock/sherlock.toml",
 ];
 
-#[derive(Deserialize, Serialize,Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 pub struct ConfigManager {
     engines_location: String,
     storage: StrorageType,
@@ -19,13 +19,11 @@ pub struct ConfigManager {
 }
 
 impl ConfigManager {
-     
     pub fn init() -> Result<ConfigManager, String> {
         //pick the the first config file that exists from the different options
         let config_file = CONFIG_LOCATIONS
             .iter()
             .find(|file| Path::new(file).exists());
-
 
         //read the file and create an instance out of it
         match config_file {
@@ -45,30 +43,28 @@ impl ConfigManager {
         }
     }
 
-    pub fn get_engines_location(&self) -> &str{
+    pub fn get_engines_location(&self) -> &str {
         return &self.engines_location;
     }
 }
 
-#[derive(Deserialize, Serialize,Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 pub enum StrorageType {
-    #[serde(rename="remote")]
+    #[serde(rename = "remote")]
     Remote,
-    #[serde(rename="local")]
+    #[serde(rename = "local")]
     Local { path: String, encrypted: bool },
 }
 
-
 #[cfg(test)]
-mod tests{
+mod tests {
     use super::*;
 
     #[test]
-    fn create_from_toml(){
-        let content =  fs::read_to_string(CONFIG_LOCATIONS[0]).unwrap();
-        println!("{}",content);
-        let manager:ConfigManager = toml::from_str(&content).unwrap();
+    fn create_from_toml() {
+        let content = fs::read_to_string(CONFIG_LOCATIONS[0]).unwrap();
+        println!("{}", content);
+        let manager: ConfigManager = toml::from_str(&content).unwrap();
         println!("{:?}", manager);
     }
-
 }

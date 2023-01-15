@@ -1,7 +1,6 @@
 use serde::Deserialize;
-use serde_valid::{json::FromJsonStr, Validate, ValidatePattern};
+use serde_valid::Validate;
 use std::collections::HashMap;
-use std::fs;
 
 // ----------------------------------------- Engine Struct ----------------------------------------
 
@@ -92,8 +91,8 @@ impl Engine {
 
     /// ## Description
     /// gets a reference to the description string if there is one.
-    pub fn get_description(&self) -> Option<&String> {
-        self.description.as_ref()
+    pub fn get_description(&self) -> Option<String> {
+        self.description.clone()
     }
 
     /// ## Description
@@ -213,10 +212,12 @@ impl Command {
 #[cfg(test)]
 mod command_tests {
     use super::*;
+    use serde_valid::json::FromJsonStr;
+
     #[test]
     fn create_with_new() {
         //valid command
-        let command = Command::new("-u $query", None).unwrap();
+        let _command = Command::new("-u $query", None).unwrap();
 
         //invalid command
         let command = Command::new("-u query", None);
@@ -231,7 +232,7 @@ mod command_tests {
                 "args":"-search_user=$query",
                 "description":"search a user"
             }"#;
-        let command = Command::from_json_str(valid_json_command).unwrap();
+        let _command = Command::from_json_str(valid_json_command).unwrap();
 
         //invalid json deserialization
         let invalid_json_command = r#"
@@ -257,12 +258,13 @@ mod command_tests {
 #[cfg(test)]
 mod engine_tests {
     use serde_valid::json::FromJsonReader;
+    use std::fs;
 
     use super::*;
 
     #[test]
     fn create_with_new() {
-        let mut engine: Engine = Engine::new(
+        let mut _engine: Engine = Engine::new(
             "google",
             "./engines/google_engine",
             None,
@@ -272,15 +274,16 @@ mod engine_tests {
     #[test]
     fn check_add_command() {
         let mut engine = Engine::new("Engine", "./engine", None, None);
-        engine.add_command("search", "-s $query", None);
+        engine.add_command("search", "-s $query", None).unwrap();
         assert!(engine.execute("search", "test123").is_ok());
     }
 
     #[test]
     fn create_from_json_and_list() {
         //open the config file
-        let fd = fs::File::open("./mock_files/facebook_engine/config.json")
-            .expect("couldn't open the file");
+        let fd =
+            fs::File::open("../../config_manager/mock_files/engines/facebook_engine/config.json")
+                .expect("couldn't open the file");
 
         //convert the json to an engine instance
         let engine = Engine::from_json_reader(fd).expect("couldn't parse the json file");
@@ -302,8 +305,9 @@ mod engine_tests {
     #[test]
     fn execute_command() {
         //open the config file
-        let fd = fs::File::open("./mock_files/facebook_engine/config.json")
-            .expect("couldn't open the file");
+        let fd =
+            fs::File::open("../../config_manager/mock_files/engines/facebook_engine/config.json")
+                .expect("couldn't open the file");
         //convert the json to an engine instance
         let engine = Engine::from_json_reader(fd).expect("couldn't parse the json file");
         //check valid command
