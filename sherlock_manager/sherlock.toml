@@ -1,0 +1,2 @@
+engines_location = "../config_manager/mock_files/engines"
+storage = "remote"

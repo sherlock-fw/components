@@ -1,0 +1,7 @@
+[workspace]
+members = [ 
+            "config_manager", 
+            "engines_manager",
+            "sherlock_manager",
+            "ipc",
+            ]
