@@ -3,9 +3,9 @@ use config_manager::ConfigManager;
 use engines_manager::EnginesManager;
 use storage_manager::StorageManager;
 
-use std::{cell::RefCell, fs, io, path, sync::mpsc, thread, time};
 use serde::{Deserialize, Serialize};
 use serde_json;
+use std::{cell::RefCell, collections::HashMap, fs, io, path, sync::mpsc, thread, time};
 use tauri::Window;
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -21,14 +21,14 @@ enum Log {
 }
 
 #[derive(Clone, Debug, serde::Serialize)]
-enum Result {
+enum TaskResult {
     List(Vec<String>),
 }
 
 enum Message {
     Log(Log),
     Task(Task),
-    Result(Result),
+    TaskResult(TaskResult),
 }
 
 pub struct SherlockManager {
@@ -48,7 +48,7 @@ impl SherlockManager {
                 tauri_window: RefCell::new(None),
             },
             Err(error) => {
-                println!("{}",error);
+                println!("{}", error);
                 SherlockManager {
                     engines_manager: EnginesManager::init(),
                     configs: None,
@@ -92,7 +92,7 @@ impl SherlockManager {
                 }
                 None => {
                     //TODO: replace with better result handling
-                    println!("{} {}",err.to_string(),engines_dir);
+                    println!("{} {}", err.to_string(), engines_dir);
                     return self;
                 }
             },
@@ -101,11 +101,13 @@ impl SherlockManager {
         //import new engine from each config.json file in the engines directories
         for engine in engines {
             let engine_config = engine.join("config.json");
-            println!("{}",engine_config.to_str().unwrap());
-            self.engines_manager.add_engine_from_config(engine_config.to_str().unwrap());
+            println!("{}", engine_config.to_str().unwrap());
+            self.engines_manager
+                .add_engine_from_config(engine_config.to_str().unwrap());
         }
 
-        if self.tauri_window.borrow().is_some() { //send a success log to the frontend
+        if self.tauri_window.borrow().is_some() {
+            //send a success log to the frontend
             self.tauri_window
                 .borrow()
                 .as_ref()
@@ -119,7 +121,7 @@ impl SherlockManager {
         thread::spawn(move || {
             //emulate slow responds
             thread::sleep(time::Duration::from_secs(5));
-            tx.send(Message::Result(Result::List(vec![
+            tx.send(Message::TaskResult(TaskResult::List(vec![
                 "google".into(),
                 "instagram".into(),
                 "mysql".into(),
@@ -127,8 +129,15 @@ impl SherlockManager {
         });
     }
 
-    pub fn list_engines(&self)-> Vec<String>{
+    pub fn list_engines(&self) -> Vec<String> {
         self.engines_manager.list_engines()
+    }
+
+    pub fn list_engine_commands(
+        &self,
+        engine_name: &str,
+    ) -> Result<HashMap<String,Option<String>>, engines_manager::Error> {
+        self.engines_manager.list_engine_commands(engine_name)
     }
 
     pub fn listen(&self) {
@@ -172,12 +181,9 @@ impl SherlockManager {
                     window.emit("log-event", log).unwrap();
                 }
 
-                Message::Result(result) => {
+                Message::TaskResult(result) => {
                     //recieved a result
-                    window.emit(
-                        "log-event",
-                        Log::Info(format!("{:?}", result)),
-                    );
+                    window.emit("log-event", Log::Info(format!("{:?}", result)));
                 }
             }
         }
@@ -185,19 +191,25 @@ impl SherlockManager {
 }
 
 #[cfg(test)]
-mod tests{
+mod tests {
     use super::*;
     #[test]
-    fn build_from_config(){
-        SherlockManager::init()
-            .build();
+    fn build_from_config() {
+        SherlockManager::init().build();
     }
 
     #[test]
-    fn list_engines(){
-        let engines = SherlockManager::init()
-            .build()
-            .list_engines();
-        println!("{:?}",engines);
+    fn list_engines() {
+        let engines = SherlockManager::init().build().list_engines();
+        println!("{:?}", engines);
+    }
+
+    #[test]
+    fn list_engine_commands() {
+        //TODO: make this tesk more general
+        let manager = SherlockManager::init();
+        manager.build();
+        let commands = manager.list_engine_commands("facebook").unwrap();
+        println!("{:?}", commands);
     }
 }

@@ -1,9 +1,7 @@
 use engine::Engine;
 pub use engine::EngineError;
 use serde_valid::json::FromJsonReader;
-use std::cell::RefCell;
-use std::collections::HashMap;
-use std::fs;
+use std::{cell::RefCell, collections::HashMap, fs};
 
 mod engine;
 
@@ -16,6 +14,7 @@ pub struct EnginesManager {
 impl EnginesManager {
     /// ## Description
     /// Initiates EnginesManager.
+    ///
     /// Used by SherlockManager which holds the system's instance.
     /// ## Example
     /// **Basic usage:**
@@ -29,7 +28,14 @@ impl EnginesManager {
     }
 
     /// ## Description
-    /// Adds new engine from the engine's config file.
+    /// Adds new engine from the engine's json config file.
+    /// ## Example
+    /// **Basic usage:**
+    /// ```
+    /// # use engine_manager::EnginesManager;
+    /// let manager = EnginesManager::init();
+    /// manager.add_engine_from_config("engine.json").unwrap();
+    /// ```
     // TODO: add examples and tests.
     pub fn add_engine_from_config(&self, config_file: &str) -> Result<(), Error> {
         //open the config file
@@ -39,10 +45,10 @@ impl EnginesManager {
                 match Engine::from_json_reader(fd) {
                     Ok(engine) => {
                         //check if the engine exists already
-                        if self.engines.borrow().contains_key(&engine.get_name()) {
+                        if self.engines.borrow().contains_key(engine.get_name()) {
                             return Err(Error::EngineExists);
                         }
-                        self.engines.borrow_mut().insert(engine.get_name(), engine);
+                        self.engines.borrow_mut().insert(engine.get_name().into(), engine);
                         Ok(())
                     }
                     Err(error) => Err(Error::InvalidConfig(error.to_string())), //convert error
@@ -51,6 +57,7 @@ impl EnginesManager {
             Err(error) => Err(Error::InvalidConfig(error.to_string())), //convert error
         }
     }
+
     /// ## Description
     /// Adds new engine
     /// Supposed to be called only when user manually add engine via the UI.
@@ -61,6 +68,7 @@ impl EnginesManager {
     /// engines_manager.add_engine("engine_name","path_to_engine",None,None)
     ///     .expect("engine exists already");
     /// ```
+    // TODO: add commands
     pub fn add_engine(
         &self,
         name: &str,
@@ -90,7 +98,7 @@ impl EnginesManager {
     /// engine_manager.list_engine_commands("engine_name")
     ///     .expect("unknown engine");
     /// ```
-    pub fn list_engine_commands(&self, engine: &str) -> Result<Vec<String>, Error> {
+    pub fn list_engine_commands(&self, engine: &str) -> Result<HashMap<String,Option<String>>, Error> {
         match self.engines.borrow().get(engine) {
             Some(engine) => {
                 //if the engine exists, list its commands
@@ -104,6 +112,11 @@ impl EnginesManager {
     }
     /// ## Description
     /// Executes engine's command.
+    /// ## Example
+    /// **Basic usage:**
+    /// ```
+    /// # let manager = EnginesManager::init();
+    /// ```
     // TODO: add an example
     pub fn execute(&self, engine: &str, command: &str, query: &str) -> Result<String, Error> {
         match self.engines.borrow().get(engine) {
@@ -122,13 +135,25 @@ impl EnginesManager {
 
     /// ## Description
     /// Removes an engine from the engines hashmap.
-    // TODO: add an example
-    pub fn remove_engine(&self, engine: &str) {
-        self.engines.borrow_mut().remove(engine);
+    /// ## Example
+    /// **Basic usage:**
+    /// ```
+    /// # let manager = EnginesManager::init();
+    /// manager.remove_engine("engine_name");
+    /// ```
+    // TODO: add test
+    pub fn remove_engine(&self, engine_name: &str) {
+        self.engines.borrow_mut().remove(engine_name);
     }
 
     /// ## Description
     /// Gets a list of the engines names.
+    /// ## Example
+    /// **Basic usage:**
+    /// ```
+    /// # let manager = EnginesManager::init();
+    /// let engines: Vec<String> = manager.list_engines()
+    /// ```
     // TODO: add an example
     pub fn list_engines(&self) -> Vec<String> {
         self.engines.borrow().keys().cloned().collect()
@@ -140,7 +165,7 @@ impl EnginesManager {
     pub fn get_engine_description(&self, engine: &str) -> Result<Option<String>, Error> {
         //get the engine
         match self.engines.borrow().get(engine) {
-            Some(engine) => Ok(engine.get_description()),
+            Some(engine) => Ok(engine.get_description().cloned()),
             None => Err(Error::UnknownEngine),
         }
     }
@@ -157,6 +182,7 @@ impl EnginesManager {
     }
 }
 
+#[derive(Debug)]
 pub enum Error {
     EngineExists,
     UnknownEngine,
