@@ -60,7 +60,6 @@ impl Engine {
     /// ```
     pub fn execute(&self, command: &str, query: &str) -> Result<String, EngineError> {
         let command = self.commands.get(command); //get the command
-        let prefix = self.prefix.clone().unwrap_or("".to_owned()); //get the prefix
 
         match command {
             Some(command) => {
