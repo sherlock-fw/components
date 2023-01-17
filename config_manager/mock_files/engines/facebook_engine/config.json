@@ -1,14 +1,14 @@
 {
     "name":"facebook",
-    "path":"./facebook_engine.py",
+    "path":"../config_manager/mock_files/engines/facebook_engine/facebook_engine.py",
     "prefix":"python3",
     "commands":{
         "user":{
-            "args":"-search_user=$query",
+            "args":"-search_user $query",
             "description":"search a user"
         },        
         "group":{
-            "args":"-group=$query",
+            "args":"-group $query",
             "description":"search a group"
         }
     },
