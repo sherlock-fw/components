@@ -1,3 +1,5 @@
+//TODO: use one lock call in a method
+
 #[macro_use]
 extern crate lazy_static;
 use std::sync::Mutex;
@@ -10,6 +12,7 @@ lazy_static! {
 pub struct MessagesBox {
     jobs: Vec<Job>,
     responds: Vec<Respond>,
+    logs: Vec<Log>,
     pending: bool,
 }
 
@@ -18,6 +21,7 @@ impl MessagesBox {
         MessagesBox {
             jobs: vec![],
             responds: vec![],
+            logs: vec![],
             pending: false,
         }
     }
@@ -26,14 +30,16 @@ impl MessagesBox {
         &GLOBAL_INSTANCE
     }
 
-    pub fn send_jobs(&mut self, jobs: Vec<Job>) {
-        self.jobs.extend(jobs);
-        self.pending = true;
+    pub fn send_jobs(jobs: Vec<Job>) {
+        let m = MessagesBox::get_instance();
+        m.lock().unwrap().jobs.extend(jobs);
+        m.lock().unwrap().pending = true;
     }
 
-    pub fn recieve_jobs(&mut self) -> Vec<Job> {
-        let out = self.jobs.clone();
-        self.jobs.clear();
+    pub fn recieve_jobs() -> Vec<Job> {
+        let m = MessagesBox::get_instance();
+        let out = m.lock().unwrap().jobs.clone();
+        m.lock().unwrap().jobs.clear();
         out
     }
 
@@ -59,6 +65,11 @@ impl MessagesBox {
         m.lock().unwrap().responds.clear();
         out
     }
+
+    pub fn send_log(log: Log) {
+        let m = MessagesBox::get_instance();
+        m.lock().unwrap().logs.push(log);
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -68,6 +79,13 @@ pub enum Job {
         engines_list: Vec<String>,
         query: String,
     },
+}
+
+#[derive(Clone, Debug)]
+pub enum Log {
+    Error(String),
+    Warning(String),
+    Info(String),
 }
 
 #[derive(Clone, Debug)]
@@ -84,17 +102,15 @@ mod tests {
 
     #[test]
     fn clear_queues_after_read() {
-        // init
-        let mut ipc = MessagesBox::init();
         // send a job
-        ipc.send_jobs(vec![Job::ListEngines]);
-        assert_eq!(ipc.jobs.len(), 1);
+        MessagesBox::send_jobs(vec![Job::ListEngines]);
+        assert_eq!(GLOBAL_INSTANCE.lock().unwrap().jobs.len(), 1);
         // recieve a job
-        let jobs = ipc.recieve_jobs();
+        let jobs = MessagesBox::recieve_jobs();
         // make sure that the instance's jobs queue is clear
         // and that the recievied jobs vector is not.
-        assert_eq!(ipc.jobs.len(), 0);
-        assert_ne!(jobs.len(), ipc.jobs.len());
+        assert_eq!(GLOBAL_INSTANCE.lock().unwrap().jobs.len(), 0);
+        assert_ne!(jobs.len(), GLOBAL_INSTANCE.lock().unwrap().jobs.len());
     }
 
     #[test]
