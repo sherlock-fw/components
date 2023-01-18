@@ -6,10 +6,10 @@ mod command_tests {
     #[test]
     fn create_with_new() {
         //valid command
-        let _command = Command::new("-u $query", None).unwrap();
+        let _command = Command::new("name", "-u $query", None).unwrap();
 
         //invalid command
-        let command = Command::new("-u query", None);
+        let command = Command::new("name", "-u query", None);
         assert!(command.is_err());
     }
 
@@ -18,6 +18,7 @@ mod command_tests {
         //valid json deserialization
         let valid_json_command = r#"
             {
+                "name":"user",
                 "args":"-search_user=$query",
                 "description":"search a user"
             }"#;
@@ -26,6 +27,7 @@ mod command_tests {
         //invalid json deserialization
         let invalid_json_command = r#"
         {
+            "name":"user",
             "args":"-search_user=$q",
             "description":"search a user"
         }"#;
@@ -34,13 +36,19 @@ mod command_tests {
     }
     #[test]
     fn check_description() {
-        let command = Command::new("$query", Some("test description")).unwrap();
+        let command = Command::new("name", "$query", Some("test description")).unwrap();
         assert_eq!(command.get_description().unwrap(), "test description");
     }
     #[test]
     fn parse_args() {
-        let command = Command::new("-searchuser=$query", None).unwrap();
+        let command = Command::new("name", "-searchuser=$query", None).unwrap();
         assert_eq!(command.parse_args("user123"), "-searchuser=user123");
+    }
+
+    #[test]
+    fn check_name() {
+        let command = Command::new("db_search", "-db=$query", None).unwrap();
+        assert_eq!(command.get_name(), "db_search");
     }
 }
 
@@ -56,9 +64,25 @@ mod engine_tests {
             "google",
             "./engines/google_engine",
             None,
+            None,
             Some("google search engine"),
         );
     }
+    #[test]
+    fn check_new_command() {
+        let mut engine = Engine::new(
+            "Engine",
+            "../config_manager/mock_files/engines/test_engine/engine",
+            None,
+            None,
+            None,
+        );
+        engine
+            .new_command("search", "-search=$query", None)
+            .unwrap();
+        assert!(engine.execute("search", "test123").is_ok());
+    }
+
     #[test]
     fn check_add_command() {
         let mut engine = Engine::new(
@@ -66,13 +90,13 @@ mod engine_tests {
             "../config_manager/mock_files/engines/test_engine/engine",
             None,
             None,
+            None,
         );
-        engine
-            .add_command("search", "-search=$query", None)
-            .unwrap();
+        let command = Command::new("search", "-s $query", None).unwrap();
+
+        engine.add_command(command).unwrap();
         assert!(engine.execute("search", "test123").is_ok());
     }
-
     #[test]
     fn create_from_json_and_list() {
         //open the config file
@@ -112,7 +136,28 @@ mod engine_tests {
         //check invalid command
         assert_eq!(
             engine.execute("search", "user123").unwrap_err(),
-            EngineError::UnkownCommand
+            EngineError::UnknownCommand
+        );
+    }
+
+    #[test]
+    fn check_name() {
+        let engine = Engine::new("Engine", "path", None, None, None);
+        assert_eq!(engine.get_name(), "Engine");
+    }
+
+    #[test]
+    fn list_commands() {
+        let commands = vec![
+            Command::new("search", "$query", None).unwrap(),
+            Command::new("upload", "$query", Some("description")).unwrap(),
+        ];
+        let engine = Engine::new("engine", "path", None, Some(commands), None);
+        let commands = engine.list_commands();
+        assert!(commands.get("search").unwrap().is_none());
+        assert_eq!(
+            commands.get("upload").unwrap().as_ref().unwrap(),
+            &"description".to_owned()
         );
     }
 }

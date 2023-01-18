@@ -2,15 +2,17 @@
     "name":"facebook",
     "path":"../config_manager/mock_files/engines/facebook_engine/facebook_engine.py",
     "prefix":"python3",
-    "commands":{
-        "user":{
+    "commands":[
+        {
+            "name":"user",
             "args":"-search_user $query",
             "description":"search a user"
         },        
-        "group":{
+        {
+            "name":"group",
             "args":"-group $query",
             "description":"search a group"
         }
-    },
+  ],
     "description":"Search stuff on Facebook."
 }

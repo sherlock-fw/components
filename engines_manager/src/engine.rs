@@ -13,9 +13,9 @@ pub struct Engine {
     /// The name of the engine.
     name: String,
     /// The path to the engine binary/script.
-    path: String, // TODO: consider if validation is needed from here
+    path: String, 
     /// A HashMap of the engine's different commands with command_name:Command pairs.
-    commands: HashMap<String, Command>,
+    commands: Vec<Command>,
     /// A prefix for running the engine (if needed).
     /// **i.e:** `python3`, `bash -e`, `ruby`.
     prefix: Option<String>,
@@ -30,16 +30,24 @@ impl Engine {
     /// ## Example
     /// **Basic usage:**
     /// ```ignore
-    /// let engine = Engine::new("MyEngine","engines_path/my_engine",None,Some("this is my powerful engine"));
+    /// let engine = Engine::new("MyEngine","engines_path/my_engine",None,None,Some("this is my powerful engine"));
     /// ```
-    //TODO: add a Vec<Command> arg for the engine's command. (expose of Command struct is required).
-    pub fn new(name: &str, path: &str, prefix: Option<&str>, description: Option<&str>) -> Self {
+    pub fn new(
+        name: &str,
+        path: &str,
+        prefix: Option<&str>,
+        commands: Option<Vec<Command>>,
+        description: Option<&str>,
+    ) -> Self {
         Engine {
             name: name.to_owned(),
             path: path.to_owned(),
-            commands: HashMap::new(),
             prefix: prefix.map(ToOwned::to_owned),
             description: description.map(ToOwned::to_owned),
+            commands: match commands { 
+                Some(commands) => commands,
+                None => Vec::new(),
+            },
         }
     }
 
@@ -49,12 +57,12 @@ impl Engine {
     /// **Basic usage:**
     /// ```ignore
     ///     let res : Result<String,EngineError> = engine.execute("command","query")
-    ///         .expect("unkown command");
+    ///         .expect("unknown command");
     ///         println!("{}",res);  
     /// ```
     pub fn execute(&self, command_name: &str, query: &str) -> Result<String, EngineError> {
         //get the command
-        let command = self.commands.get(command_name); //get the command
+        let command = self.commands.iter().find(|c|c.get_name() == command_name);//get the command
 
         match command {
             Some(command) => {
@@ -70,15 +78,14 @@ impl Engine {
                     process::Command::new(prefix)
                         .arg(&self.path)
                         .args(&args)
-                        .output()?
+                        .output().map_err(|_|EngineError::ExecutionFailed)?
                 } else {
-                    process::Command::new(&self.path).args(&args).output()?
+                    process::Command::new(&self.path).args(&args).output().map_err(|_|EngineError::ExecutionFailed)?
                 };
 
-                Ok(std::str::from_utf8(&output.stdout).unwrap().to_owned())
-                //TODO: make a conversion for the error handling
+                Ok(std::str::from_utf8(&output.stdout).map_err(|_|EngineError::UnknownError)?.to_owned())
             }
-            None => Err(EngineError::UnkownCommand), //the command doesn't exists
+            None => Err(EngineError::UnknownCommand), //the command doesn't exists
         }
     }
 
@@ -108,7 +115,7 @@ impl Engine {
     pub fn list_commands(&self) -> HashMap<String, Option<String>> {
         self.commands //generate a hashmap of command_name:description pairs.
             .iter()
-            .map(|(k, v)| (k.clone(), v.get_description().cloned()))
+            .map(|c| (c.get_name().into(), c.get_description().cloned()))
             .collect()
     }
 
@@ -126,38 +133,64 @@ impl Engine {
         self.description.as_ref()
     }
 
-    // TODO: change to getting a command struct (rewrite)
     /// ## Description
-    /// Adds a new command to the engine.
-    /// used for creating an engine manually from the UI.
-    pub fn add_command(
+    /// Creates a new engine command.
+    /// ## Example
+    /// **Basic usage:**
+    /// ```ignore
+    ///     enginge.new_command("command_name","--search $query",None)
+    ///         .expect("command exists already");
+    /// ```
+    pub fn new_command(
         &mut self,
         name: &str,
         args: &str,
         description: Option<&str>,
     ) -> Result<(), EngineError> {
-        if self.commands.contains_key(name) {
-            //check if the command exists already
-            Err(EngineError::CommandExists)
-        } else {
-            //if the command doesn't exist yet.
-            let command = Command::new(args, description);
-
-            match command {
-                Ok(command) => {
-                    self.commands.insert(name.to_owned(), command); //insert new command
-                    Ok(())
-                }
-                Err(err) => Err(err), //args doesn't contain `$query`
-            }
+        //check if the command exists already
+        if self.is_command_exists(name) {
+            return Err(EngineError::CommandExists);
         }
+
+        match Command::new(name, args, description) {
+            //create command instance
+            Ok(command) => {
+                //insert the command
+                self.commands.push(command);
+                Ok(())
+            }
+            Err(err) => Err(err), //args doesn't contain `$query`
+        }
+    }
+    /// ## Description
+    /// Adds a given command to the engine.
+    /// used for creating an engine manually from the UI.
+    /// ## Example
+    /// **Basic usage:**
+    /// ```ignore
+    ///     let command = Command::new("command_name","--search $query",None);
+    ///     enginge.add_command(command)
+    ///         .expect("command exists already");
+    /// ```
+    pub fn add_command(&mut self, command: Command) -> Result<(), EngineError> {
+        //check if the command exists already
+        if self.is_command_exists(command.get_name()) {
+            return Err(EngineError::CommandExists);
+        }
+        self.commands.push(command);
+        Ok(())
+    }
+
+    // Check if there is a command with a given name
+    fn is_command_exists(&self,name:&str)-> bool{
+        self.commands.iter().any(|c|c.get_name() == name)
     }
 }
 
 // ------------------------------------------ Aux Structs ------------------------------------------
 
 /// A struct that is used by the `Engine` struct to hold commands information.
-#[derive(Deserialize, Validate, Debug)]
+#[derive(Clone, Deserialize, Validate, Debug)]
 pub struct Command {
     /// ## Description
     /// the arguments for running the command.
@@ -170,10 +203,11 @@ pub struct Command {
     /// ./engine binary -searchuser=user123
     /// ```
     /// In that case the args should be: "-searchuser=$query"
+    name: String,
     #[validate(
         pattern = r"^.*\$query.*$",
         message = r"`args` must contains `$query`."
-    )]// validation for json conversion
+    )] // validation for json conversion
     args: String,
     /// ## Description
     /// An optional description that describes the engine.
@@ -190,15 +224,16 @@ impl Command {
     /// ## Example
     /// **Basic usage:**
     /// ```ignore
-    /// let command = Command::new("-u $query",Some("command description"))
+    /// let command = Command::new("command_name","-u $query",Some("command description"))
     ///     .expect("args missing `$query`");
     /// ```
-    pub fn new(args: &str, description: Option<&str>) -> Result<Command, EngineError> {
+    pub fn new(name: &str, args: &str, description: Option<&str>) -> Result<Command, EngineError> {
         if !args.contains("$query") {
             // make sure that the args contains the `$query` placeholder
             Err(EngineError::InvalidArgs)
         } else {
             Ok(Command {
+                name: name.into(),
                 args: args.to_owned(),
                 description: description.map(ToOwned::to_owned),
             })
@@ -231,6 +266,18 @@ impl Command {
     pub fn get_description(&self) -> Option<&String> {
         self.description.as_ref()
     }
+
+    /// ## Description
+    /// Gets a reference to the command's name
+    /// ## Example
+    /// **Basic usage:**
+    /// ```ignore
+    ///     let command_name = command.get_name();
+    ///     println!("command's name: {}",command_name);
+    /// ```
+    pub fn get_name(&self) -> &str {
+        &self.name
+    }
 }
 
 // ------------------------------------------ Custom Error ------------------------------------------
@@ -242,10 +289,14 @@ pub enum EngineError {
     CommandExists,
     /// Occurs when given args without the $query placeholder.
     InvalidArgs,
+    /// Occurs when invalid engine path is given.
+    InvalidEnginePath,
     /// Occurs when an execution of a command has failed.      
     ExecutionFailed,
     /// Occurs when an unknown command has given.
-    UnkownCommand,
+    UnknownCommand,
+    /// Defualt Error
+    UnknownError,
 }
 
 impl std::fmt::Display for EngineError {
@@ -254,7 +305,9 @@ impl std::fmt::Display for EngineError {
             EngineError::CommandExists => f.write_str("CommandExists"),
             EngineError::InvalidArgs => f.write_str("InvalidArgs"),
             EngineError::ExecutionFailed => f.write_str("ExecutionFailed"),
-            EngineError::UnkownCommand => f.write_str("UnkownCommand"),
+            EngineError::UnknownCommand => f.write_str("UnknownCommand"),
+            EngineError::UnknownError => f.write_str("UnknownError"),
+            EngineError::InvalidEnginePath => f.write_str("InvalidEnginePath"),
         }
     }
 }
@@ -265,14 +318,10 @@ impl std::error::Error for EngineError {
             EngineError::CommandExists => "Command exists already",
             EngineError::InvalidArgs => "Invalid arguments has provided",
             EngineError::ExecutionFailed => "Failed to execute command",
-            EngineError::UnkownCommand => "Unkown command has given",
+            EngineError::UnknownCommand => "Unknown command has given",
+            EngineError::UnknownError => "Unknown error",
+            EngineError::InvalidEnginePath =>"Invalid engine path has provided",
         }
-    }
-}
-
-impl From<std::io::Error> for EngineError {
-    fn from(_: std::io::Error) -> Self {
-        EngineError::ExecutionFailed
     }
 }
 

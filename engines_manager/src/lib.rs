@@ -36,7 +36,7 @@ impl EnginesManager {
     /// let manager = EnginesManager::init();
     /// manager.add_engine_from_config("engine.json").unwrap();
     /// ```
-    // TODO: add examples and tests.
+    // TODO: check that the engine path is valid, add examples and tests.
     pub fn add_engine_from_config(&self, config_file: &str) -> Result<(), Error> {
         //open the config file
         match fs::File::open(config_file) {
@@ -68,7 +68,7 @@ impl EnginesManager {
     /// engines_manager.add_engine("engine_name","path_to_engine",None,None)
     ///     .expect("engine exists already");
     /// ```
-    // TODO: add commands
+    // TODO: check that the engine path is valid. add commands
     pub fn add_engine(
         &self,
         name: &str,
@@ -84,7 +84,7 @@ impl EnginesManager {
         // add the engine
         self.engines.borrow_mut().insert(
             name.to_owned(),
-            Engine::new(name, path, prefix, description),
+            Engine::new(name, path, prefix,None, description),
         );
         Ok(())
     }
